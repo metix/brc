@@ -5,6 +5,7 @@
 Node *asl;
 static Node *last_asl;
 
+/* add node to the abstract syntax list */
 static void push_node(int type)
 {
 	if (asl == NULL)
@@ -24,6 +25,9 @@ static void push_node(int type)
 	last_asl = new;
 }
 
+/* translate the brainfuck instructions to abstract instructions,
+ * and add them to a abstract syntax list
+ */
 void parse(void)
 {
 	debug(	"-> start parsing\n"
@@ -37,24 +41,12 @@ void parse(void)
 	{
 		switch (op)
 		{
-			case '.':
-				push_node(ASL_OUT);
-				break;
-			case ',':
-				push_node(ASL_IN);
-				break;
-			case '>':
-				push_node(ASL_INCP);
-				break;
-			case '<':
-				push_node(ASL_DECP);
-				break;
-			case '+':
-				push_node(ASL_INC);
-				break;
-			case '-':
-				push_node(ASL_DEC);
-				break;
+			case '.': push_node(ASL_OUT); break;
+			case ',': push_node(ASL_IN); break;
+			case '>': push_node(ASL_INCP); break;
+			case '<': push_node(ASL_DECP); break;
+			case '+': push_node(ASL_INC); break;
+			case '-': push_node(ASL_DEC); break;
 			case '[':
 				if (loop_level >= MAX_NESTED_LOOPS)
 					error("too much nested loops");
@@ -66,12 +58,12 @@ void parse(void)
 			case ']':
 				loop_level--;
 				if (loop_level < 0)
-					error("wrong loop placement");
+					error("wrong loop placement: missing '['");
 				push_node(ASL_BR);
 				break;
 		}
 	}
 
 	if (loop_level != 0)
-		error("wrong loop placement");
+		error("wrong loop placement: missing ']'");
 }

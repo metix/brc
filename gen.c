@@ -4,6 +4,7 @@
 
 static int loop_level = 0, loop_stack[MAX_NESTED_LOOPS] = {};
 
+/* code for the entry-point, and space for the cell-array */
 static void gen_start()
 {
 	fprintf(fasm,
@@ -19,6 +20,7 @@ static void gen_start()
 	fprintf(fasm, "mov $data_area, %%r12\n");
 }
 
+/* syscall exit(), to terminate the program successfull */
 static void gen_exit()
 {
 	fprintf(fasm,
@@ -26,7 +28,10 @@ static void gen_exit()
 		"\tmov $60, %%rax\n"
 		"\txor %%rdi, %%rdi\n"
 		"\tsyscall\n");
+}
 
+static void gen_io_subroutines(void)
+{
 	fprintf(fasm,
 		"read:\n"
 		"\tmov $0, %%rax\n"
@@ -134,6 +139,7 @@ static void gen_br(Node *op)
 
 void generate(void)
 {
+	debug("-> start generating asm\n");
 	gen_start();
 
 	Node *op = asl;
@@ -158,6 +164,6 @@ void generate(void)
 
 	if (loop_level != 0)
 		error("fatal: wrong loop placement");
-
 	gen_exit();
+	gen_io_subroutines();
 }

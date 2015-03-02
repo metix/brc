@@ -10,7 +10,7 @@ all:
 
 test: all
 	./brc test.b
-	./brc -SO test.b
+	./brc -SOv test.b
 	./a.out | hexdump -C
 
 clean:
