@@ -23,7 +23,8 @@ enum types {
 	ASL_BL,   /* loop-start (bracket left)*/
 	ASL_BR,   /* loop-end (bracket right) */
 	ASL_OUT,  /* write cell-value in stdout */
-	ASL_IN    /* read character from stdin in cell */
+	ASL_IN,   /* read character from stdin in cell */
+	ASL_SET	  /* set current cell value */
 };
 
 /* node used in ASL */

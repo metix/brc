@@ -61,7 +61,7 @@ static void gen_in(Node *op)
 	fprintf(fasm, "\tcall read\n");
 }
 
-static void gen_incp(Node *op)
+static void gen_add_ptr(Node *op)
 {
 	if (op->value == 1)
 	{
@@ -72,7 +72,7 @@ static void gen_incp(Node *op)
 	fprintf(fasm, "\tadd $%d, %%r12\n", op->value);
 }
 
-static void gen_decp(Node *op)
+static void gen_sub_ptr(Node *op)
 {
 	if (op->value == 1)
 	{
@@ -83,7 +83,7 @@ static void gen_decp(Node *op)
 	fprintf(fasm, "\tsub $%d, %%r12\n", op->value);
 }
 
-static void gen_inc(Node *op)
+static void gen_add(Node *op)
 {
 	if (op->value == 1)
 	{
@@ -94,7 +94,7 @@ static void gen_inc(Node *op)
 	fprintf(fasm, "\taddb $%d, (%%r12)\n", op->value);
 }
 
-static void gen_dec(Node *op)
+static void gen_sub(Node *op)
 {
 	if (op->value == 1)
 	{
@@ -137,6 +137,11 @@ static void gen_br(Node *op)
 		loop_level, loop_stack[loop_level]);
 }
 
+static void gen_set(Node *op)
+{
+	fprintf(fasm, "\tmov $%d, (%%r12)\n", op->value);
+}
+
 void generate(void)
 {
 	debug("-> start generating asm\n");
@@ -149,12 +154,13 @@ void generate(void)
 		{
 			case ASL_OUT: gen_out(op); break;
 			case ASL_IN: gen_in(op); break;
-			case ASL_INCP: gen_incp(op); break;
-			case ASL_DECP: gen_decp(op); break;
-			case ASL_INC: gen_inc(op); break;
-			case ASL_DEC: gen_dec(op); break;
+			case ASL_INCP: gen_add_ptr(op); break;
+			case ASL_DECP: gen_sub_ptr(op); break;
+			case ASL_INC: gen_add(op); break;
+			case ASL_DEC: gen_sub(op); break;
 			case ASL_BL: gen_bl(op); break;
 			case ASL_BR: gen_br(op); break;
+			case ASL_SET: gen_set(op); break;
 		}
 
 		Node *tmp = op;
