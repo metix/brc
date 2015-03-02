@@ -3,3 +3,4 @@ a.out
 *.o
 *.hex
 brc
+*.s

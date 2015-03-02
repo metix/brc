@@ -18,3 +18,4 @@ clean:
 	rm -rf $(TARGET)
 	rm -rf *.s
 	rm -rf core
+	rm -rf *.out

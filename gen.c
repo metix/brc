@@ -1,10 +1,11 @@
 #include <stdio.h>
 
-#define MAX_CELLS 30000
+#define MAX_CELLS 32768
 #define MAX_NESTED_LOOPS 255
 
 extern FILE *fasm;
 extern FILE *fin;
+extern void error(char *msg);
 
 static void gen_start()
 {
@@ -79,17 +80,38 @@ void generate(void)
 			case '[':
 				loop_stack[loop_level]++;
 
-				fprintf(fasm, "loop_%d_%d:\n", loop_level, loop_stack[loop_level]);
+				if (loop_level >= MAX_NESTED_LOOPS)
+					error("too much nested loops");
+
+				fprintf(fasm,
+					"loop_%d_%d_start:\n"
+					"\tcmpb $0, (%%r12)\n"
+					"\tje loop_%d_%d_end\n",
+					loop_level, loop_stack[loop_level],
+					loop_level, loop_stack[loop_level]);
 
 				loop_level++;
 				break;
 			case ']':
 				loop_level--;
 
-				fprintf(fasm, "\tcmpb $0, (%%r12)\n\tjne loop_%d_%d\n\n", loop_level, loop_stack[loop_level]);
+				if (loop_level < 0)
+					error("wrong loop placement");
+
+				fprintf(fasm,
+				"\tcmpb $0, (%%r12)\n"
+				"\tjne loop_%d_%d_start\n"
+				"loop_%d_%d_end:\n\n",
+					loop_level, loop_stack[loop_level],
+					loop_level, loop_stack[loop_level]);
 				break;
 		}
 	}
+
+	if (loop_level != 0)
+		error("wrong loop placement");
+
+
 
 	gen_exit();
 }

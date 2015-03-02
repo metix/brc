@@ -34,7 +34,7 @@ static void usage()
 	exit(1);
 }
 
-static void error(char *msg)
+void error(char *msg)
 {
 	fprintf(stderr, "error: %s\n", msg);
 	exit(1);
@@ -149,7 +149,6 @@ int main(int argc, char **argv)
 		if (status < 0)
 			error("ld failed");
 	}
-
 
 	return 0;
 }
