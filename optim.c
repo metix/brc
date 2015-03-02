@@ -58,6 +58,4 @@ void optimize(void)
 	optimize_reduce_reps(ASL_DEC);
 	optimize_reduce_reps(ASL_INCP);
 	optimize_reduce_reps(ASL_DECP);
-
-	printf("end optimizer");
 }

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall 
+CFLAGS = -Wall
 
 TARGET = brc
 
@@ -10,7 +10,7 @@ all:
 
 test: all
 	./brc test.b
-	./brc -S -o test.b
+	./brc -SO test.b
 	./a.out | hexdump -C
 
 clean:

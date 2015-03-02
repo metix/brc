@@ -12,6 +12,7 @@ extern void error(char *msg);
 
 extern void parse(void);
 extern void optimize(void);
+extern void generate(void);
 
 /* used in parser and generator */
 enum types {
@@ -35,5 +36,11 @@ typedef struct node_s {
 
 /* abstract syntax list start */
 extern Node *asl;
+
+extern char flg_verbose;
+#define debug(format, ...) do {                 \
+if (flg_verbose)                              \
+	fprintf(stderr, format, ##__VA_ARGS__);   \
+} while(0)
 
 #endif

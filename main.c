@@ -16,20 +16,21 @@
 #include <libgen.h>
 #include "brf.h"
 
-char *outfile, *infile;
+char *outfile, *infile, *objfile, *asmfile;
 FILE *fin, *fasm;
 
-char flg_asm;
-char flg_compile;
-
-extern void generate(void);
+char flg_asm, flg_compile, flg_optim, flg_verbose;
 
 static void usage()
 {
 	fprintf(stderr,
-		"usage: ./brc <source-file> -o <output-file>\n"
+		"usage: ./brc [options] [-o <output-file>] <source-file>\n"
+		"options:\n"
 		"  -S 		do not call assembler (output as .s)\n"
-		"  -c 		do not call linker (output as .o)"
+		"  -c 		do not call linker (output as .o)\n"
+		"  -O		enable optimization\n"
+		"  -v		enable debug-messages\n"
+		"  -h		print this screen"
 		"\n\n");
 
 	exit(1);
@@ -53,7 +54,7 @@ static char *suffix_replace(char *f, char suffix)
 static void parseopt(int argc, char **argv)
 {
 	int c;
-	while ((c = getopt(argc, argv, "o:S:c:h")) != -1)
+	while ((c = getopt(argc, argv, "vSOcho:")) != -1)
 	{
 		switch (c)
 		{
@@ -62,9 +63,15 @@ static void parseopt(int argc, char **argv)
 				break;
 			case 'S':
 				flg_asm = 1;
-				break;
+				/* fall through */
 			case 'c':
 				flg_compile = 1;
+				break;
+			case 'O':
+				flg_optim = 1;
+				break;
+			case 'v':
+				flg_verbose = 1;
 				break;
 			case 'h':
 			default:
@@ -76,19 +83,30 @@ static void parseopt(int argc, char **argv)
 		usage();
 
 	infile = argv[optind];
-
-	if (outfile == NULL)
-	{
-		if (!flg_asm)
-			outfile = suffix_replace(infile, 'o');
-		else
-			outfile = suffix_replace(infile, 's');
-	}
 }
 
-int main(int argc, char **argv)
+static void open_files(void)
 {
-	parseopt(argc, argv);
+	/* when no outputfile is given */
+	if (outfile == NULL)
+	{
+		if (flg_asm)
+			outfile = suffix_replace(infile, 's');
+		else if (flg_compile)
+			outfile = suffix_replace(infile, 'o');
+		else
+			outfile = "a.out";
+	}
+
+	if (flg_asm)
+		asmfile = outfile;
+	else
+		asmfile = "/tmp/brc_tmp_asm.s";
+
+	if (flg_compile)
+		objfile = outfile;
+	else
+		objfile = "/tmp/brc_tmp_obj.o";
 
 	fin = fopen(infile, "r");
 
@@ -98,60 +116,74 @@ int main(int argc, char **argv)
 		error("couldn't open input file");
 	}
 
-	char *asmfile;
-	if (!flg_asm)
-		asmfile = "/tmp/brc_tmp_asm.s";
-	else
-		asmfile = outfile;
-
 	fasm = fopen(asmfile, "w");
 
 	if (!fasm)
 	{
 		perror("fopen");
-		error("couldn't open asm file");
+		error("couldn't write asm file");
 	}
 
-	parse();
-	optimize();
-	generate();
+	debug("outfile: %s\ninfile: %s\nasmfile: %s\nobjfile: %s\n",
+		outfile, infile, asmfile, objfile);
+}
 
+static void close_files(void)
+{
 	fclose (fin);
 	fclose (fasm);
+}
+
+static void call_assembler(void)
+{
+	pid_t pid = fork();
+
+	if (pid < 0) perror("fork");
+	if (pid == 0)
+	{
+		execlp("as", "as", "-c", "-o", objfile, asmfile, (char *)NULL);
+		error("execl failed");
+	}
+
+	int status;
+	waitpid(pid, &status, 0);
+	if (status < 0)
+		error("as failed");
+}
+
+static void call_linker(void)
+{
+	pid_t pid = fork();
+
+	if (pid < 0) perror("fork");
+	if (pid == 0)
+	{
+		execlp("ld", "ld", "-o", outfile, objfile, (char *)NULL);
+		error("execl failed");
+	}
+
+	int status;
+	waitpid(pid, &status, 0);
+	if (status < 0)
+		error("ld failed");
+}
+
+int main(int argc, char **argv)
+{
+	parseopt(argc, argv);
+	open_files();
+
+	parse();
+	if (flg_optim)
+		optimize();
+	generate();
+
+	close_files();
 
 	if (!flg_asm)
-	{
-		pid_t pid = fork();
-
-		if (pid < 0) perror("fork");
-		if (pid == 0)
-		{
-			execlp("as", "as", "-c", "-o", outfile, asmfile, (char *)NULL);
-			error("execl failed");
-		}
-
-		int status;
-		waitpid(pid, &status, 0);
-		if (status < 0)
-			error("as failed");
-	}
-
+		call_assembler();
 	if (!flg_compile)
-	{
-		pid_t pid = fork();
-
-		if (pid < 0) perror("fork");
-		if (pid == 0)
-		{
-			execlp("ld", "ld", "-o", "a.out", suffix_replace(outfile, 'o'), (char *)NULL);
-			error("execl failed");
-		}
-
-		int status;
-		waitpid(pid, &status, 0);
-		if (status < 0)
-			error("ld failed");
-	}
+		call_linker();
 
 	return 0;
 }

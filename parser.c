@@ -26,7 +26,12 @@ static void push_node(int type)
 
 void parse(void)
 {
-	int op, loop_level = 0, loop_stack[MAX_NESTED_LOOPS] = {};
+	debug(	"-> start parsing\n"
+		"   max-nested-loops: %d\n"
+		"   max-cells: %d\n",
+		MAX_NESTED_LOOPS, MAX_CELLS);
+
+	int op, loop_level = 0,	loop_stack[MAX_NESTED_LOOPS] = {};
 
 	while ((op = getc(fin)) != EOF)
 	{
@@ -51,9 +56,10 @@ void parse(void)
 				push_node(ASL_DEC);
 				break;
 			case '[':
-				loop_stack[loop_level]++;
 				if (loop_level >= MAX_NESTED_LOOPS)
 					error("too much nested loops");
+
+				loop_stack[loop_level]++;
 				push_node(ASL_BL);
 				loop_level++;
 				break;
@@ -68,5 +74,4 @@ void parse(void)
 
 	if (loop_level != 0)
 		error("wrong loop placement");
-
 }
