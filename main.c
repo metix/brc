@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <libgen.h>
+#include "brf.h"
 
 char *outfile, *infile;
 FILE *fin, *fasm;
@@ -111,6 +112,8 @@ int main(int argc, char **argv)
 		error("couldn't open asm file");
 	}
 
+	parse();
+	optimize();
 	generate();
 
 	fclose (fin);

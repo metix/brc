@@ -1,9 +1,9 @@
 CC = gcc
-CFLAGS = -Wall -Werror
+CFLAGS = -Wall 
 
 TARGET = brc
 
-SRCS = main.c gen.c
+SRCS = main.c gen.c parser.c optim.c
 
 all:
 	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)
