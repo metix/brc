@@ -2,10 +2,8 @@
 #include <stdlib.h>
 #include "brf.h"
 
-static int loop_level = 0, loop_stack[MAX_NESTED_LOOPS] = {};
-
 /* code for the entry-point, and space for the cell-array */
-static void gen_start()
+static void gen_start(void)
 {
 	fprintf(fasm,
 		".section .bss\n"
@@ -21,7 +19,7 @@ static void gen_start()
 }
 
 /* syscall exit(), to terminate the program successfull */
-static void gen_exit()
+static void gen_exit(void)
 {
 	fprintf(fasm,
 		"_exit:\n"
@@ -61,80 +59,64 @@ static void gen_in(Node *op)
 	fprintf(fasm, "\tcall read\n");
 }
 
+static void gen_inc_ptr(Node *op)
+{
+	fprintf(fasm, "\tinc %%r12\n");
+}
+
+static void gen_dec_ptr(Node *op)
+{
+	fprintf(fasm, "\tdec %%r12\n");
+}
+
 static void gen_add_ptr(Node *op)
 {
-	if (op->value == 1)
-	{
-		fprintf(fasm, "\tinc %%r12\n");
-		return;
-	}
-
 	fprintf(fasm, "\tadd $%d, %%r12\n", op->value);
 }
 
 static void gen_sub_ptr(Node *op)
 {
-	if (op->value == 1)
-	{
-		fprintf(fasm, "\tdec %%r12\n");
-		return;
-	}
-
 	fprintf(fasm, "\tsub $%d, %%r12\n", op->value);
+}
+
+static void gen_inc(Node *op)
+{
+	fprintf(fasm, "\tincb (%%r12)\n");
+}
+
+static void gen_dec(Node *op)
+{
+	fprintf(fasm, "\tdecb (%%r12)\n");
 }
 
 static void gen_add(Node *op)
 {
-	if (op->value == 1)
-	{
-		fprintf(fasm, "\tincb (%%r12)\n");
-		return;
-	}
-
 	fprintf(fasm, "\taddb $%d, (%%r12)\n", op->value);
 }
 
 static void gen_sub(Node *op)
 {
-	if (op->value == 1)
-	{
-		fprintf(fasm, "\tdecb (%%r12)\n");
-		return;
-	}
-
 	fprintf(fasm, "\tsubb $%d, (%%r12)\n", op->value);
 }
 
-static void gen_bl(Node *op)
+static void gen_loop_begin(Node *op, int loop_level, int loop_nr)
 {
-	loop_stack[loop_level]++;
-
-	if (loop_level >= MAX_NESTED_LOOPS)
-		error("fatal: too much nested loops");
-
 	fprintf(fasm,
 		"loop_%d_%d_start:\n"
 		"\tcmpb $0, (%%r12)\n"
 		"\tje loop_%d_%d_end\n",
-		loop_level, loop_stack[loop_level],
-		loop_level, loop_stack[loop_level]);
-
-	loop_level++;
+		loop_level, loop_nr,
+		loop_level, loop_nr);
 }
 
-static void gen_br(Node *op)
+static void gen_loop_end(Node *op, int loop_level, int loop_nr)
 {
-	loop_level--;
-
-	if (loop_level < 0)
-		error("fatal: wrong loop placement");
-
 	fprintf(fasm,
-	"\tcmpb $0, (%%r12)\n"
-	"\tjne loop_%d_%d_start\n"
-	"loop_%d_%d_end:\n\n",
-		loop_level, loop_stack[loop_level],
-		loop_level, loop_stack[loop_level]);
+		"\tcmpb $0, (%%r12)\n"
+		"\tjne loop_%d_%d_start\n"
+		"loop_%d_%d_end:\n\n",
+		loop_level, loop_nr,
+		loop_level, loop_nr);
 }
 
 static void gen_set(Node *op)
@@ -142,34 +124,48 @@ static void gen_set(Node *op)
 	fprintf(fasm, "\tmov $%d, (%%r12)\n", op->value);
 }
 
-void generate(void)
-{
-	debug("-> start generating asm\n");
-	gen_start();
+static int loop_nr;
 
-	Node *op = asl;
+static void generate_ast(Node *op, int loop_level)
+{
+	int loop_nr_tmp = loop_nr;
 	while (op)
 	{
 		switch (op->type)
 		{
-			case ASL_OUT: gen_out(op); break;
-			case ASL_IN: gen_in(op); break;
-			case ASL_INCP: gen_add_ptr(op); break;
-			case ASL_DECP: gen_sub_ptr(op); break;
-			case ASL_INC: gen_add(op); break;
-			case ASL_DEC: gen_sub(op); break;
-			case ASL_BL: gen_bl(op); break;
-			case ASL_BR: gen_br(op); break;
-			case ASL_SET: gen_set(op); break;
+			case AST_OUT: gen_out(op); break;
+			case AST_IN: gen_in(op); break;
+			case AST_INCP: gen_inc_ptr(op); break;
+			case AST_DECP: gen_dec_ptr(op); break;
+			case AST_INC: gen_inc(op); break;
+			case AST_DEC: gen_dec(op); break;
+			case AST_ADDP: gen_add_ptr(op); break;
+			case AST_SUBP: gen_sub_ptr(op); break;
+			case AST_ADD: gen_add(op); break;
+			case AST_SUB: gen_sub(op); break;
+			case AST_SET: gen_set(op); break;
+			case AST_BLOCK:
+				loop_nr++;
+				gen_loop_begin(op, loop_level, loop_nr_tmp);
+				generate_ast(op->child, loop_level + 1);
+				gen_loop_end(op, loop_level, loop_nr_tmp);
+				loop_nr_tmp++;
+				break;
 		}
 
 		Node *tmp = op;
 		op = op->next;
 		free(tmp);
 	}
+}
 
-	if (loop_level != 0)
-		error("fatal: wrong loop placement");
+void generate(void)
+{
+	debug("-> start generating asm\n");
+	gen_start();
+
+	generate_ast(ast->child, 0);
+
 	gen_exit();
 	gen_io_subroutines();
 }

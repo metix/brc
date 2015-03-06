@@ -2,68 +2,80 @@
 #include <stdlib.h>
 #include "brf.h"
 
-Node *asl;
-static Node *last_asl;
+Node *ast;
 
-/* add node to the abstract syntax list */
-static void push_node(int type)
+static Node *create_node(int type)
 {
-	if (asl == NULL)
+	Node *new = calloc(1, sizeof (Node));
+	new->type = type;
+	if (type != AST_BLOCK)
+		new->value = 1;
+	return new;
+}
+
+static void push_node(Node *parent, Node *node)
+{
+	Node *tmp = parent->child;
+	
+	if (tmp == NULL)
 	{
-		asl = calloc(1, sizeof (Node));
-		asl->type = type;
-		asl->value = 1;
-		last_asl = asl;
+		parent->child = node;
 		return;
 	}
 
-	Node *new = calloc(1, sizeof (Node));
-	new->type = type;
-	new->value = 1;
-	new->previous = last_asl;
-	last_asl->next = new;
-	last_asl = new;
+	// find last node in list
+	while (tmp->next != NULL)
+		tmp = tmp->next;
+
+	// append node
+	tmp->next = node;
 }
 
-/* translate the brainfuck instructions to abstract instructions,
- * and add them to a abstract syntax list
- */
-void parse(void)
+static void parse_block(Node *n, int block_level)
 {
-	debug(	"-> start parsing\n"
-		"   max-nested-loops: %d\n"
-		"   max-cells: %d\n",
-		MAX_NESTED_LOOPS, MAX_CELLS);
-
-	int op, loop_level = 0,	loop_stack[MAX_NESTED_LOOPS] = {};
+	int op;
 
 	while ((op = getc(fin)) != EOF)
 	{
+		Node *block;
 		switch (op)
 		{
-			case '.': push_node(ASL_OUT); break;
-			case ',': push_node(ASL_IN); break;
-			case '>': push_node(ASL_INCP); break;
-			case '<': push_node(ASL_DECP); break;
-			case '+': push_node(ASL_INC); break;
-			case '-': push_node(ASL_DEC); break;
+			case '.': push_node(n, create_node(AST_OUT)); break;
+			case ',': push_node(n, create_node(AST_IN)); break;
+			case '>': push_node(n, create_node(AST_INCP)); break;
+			case '<': push_node(n, create_node(AST_DECP)); break;
+			case '+': push_node(n, create_node(AST_INC)); break;
+			case '-': push_node(n, create_node(AST_DEC)); break;
 			case '[':
-				if (loop_level >= MAX_NESTED_LOOPS)
-					error("too much nested loops");
-
-				loop_stack[loop_level]++;
-				push_node(ASL_BL);
-				loop_level++;
+				block = create_node(AST_BLOCK);
+				parse_block(block, block_level + 1);
+				push_node(n, block);
 				break;
 			case ']':
-				loop_level--;
-				if (loop_level < 0)
+				if (--block_level < 0)
 					error("wrong loop placement: missing '['");
-				push_node(ASL_BR);
-				break;
+				return;
 		}
 	}
 
-	if (loop_level != 0)
+	if (block_level != 0)
 		error("wrong loop placement: missing ']'");
+}
+
+/* create a abstract syntax tree from all instructions
+ * the AST of +>[.-]< looks like this:
+ *
+ *                #BLOCK
+ *                |
+ *		  #+ - #> - #BLOCK - #<
+ *		            |
+ *			    #. - #-
+ */
+void parse(void)
+{
+	debug ("-> start parsing\n");
+
+	// parse recursively all blocks
+	ast = create_node(AST_BLOCK);
+	parse_block(ast, 0);
 }
