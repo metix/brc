@@ -1,6 +1,22 @@
 #include "brf.h"
 
-/* remove all nodes between "from" and "to" from the abstract syntax tree.
+static int reduced_ins;
+static int reduced_loops;
+
+/* delete all nodes in list (not in tree). 'from' is inclusive. */
+static void delete_all(Node *from)
+{
+
+	while (from)
+	{
+		Node *tmp = from;
+		from = from->next;
+		free(tmp);
+		reduced_ins++;
+	}
+}
+
+/* remove all nodes between "from" and "to" from list..
  * "from" and "to" are exclusive.
  */
 static void reduce_nodes(Node *from, Node *to)
@@ -13,6 +29,7 @@ static void reduce_nodes(Node *from, Node *to)
 		tmp = deletable;
 		deletable = deletable->next;
 		free(tmp);
+		reduced_ins++;
 	}
 
 	from->next = to;
@@ -61,22 +78,43 @@ static void optimize_reduce_op(Node *op, int type, int new_type)
 	}
 }
 
+/* replace [-] and [+] loops with *p = 0 */
+static void optimize_zero_loop(Node *op)
+{
+	if (op->child == NULL)
+		return;
+
+	if ((op->child->type == AST_DEC || op->child->type == AST_INC) && op->child->next == NULL)
+	{
+		Node *child = op->child;
+
+		// overwrite block with set instruction
+		op->type = AST_SET;
+		op->value = 0;
+		reduced_loops++;
+
+		// delete instructions
+		delete_all(child);
+	}
+}
+
 static void optimize_reducing(Node *n)
 {
+	Node *c = n->child;
+	while (c)
+	{
+		if (c->type == AST_BLOCK)
+			optimize_reducing(c);
+
+		c = c->next;
+	}
+
 	optimize_reduce_op(n->child, AST_INC, AST_ADD);
 	optimize_reduce_op(n->child, AST_DEC, AST_SUB);
 	optimize_reduce_op(n->child, AST_INCP, AST_ADDP);
 	optimize_reduce_op(n->child, AST_DECP, AST_SUBP);
 
-	// go through all blocks recursively
-	n = n->child;
-	while (n)
-	{
-		if (n->type == AST_BLOCK)
-			optimize_reducing(n);
-
-		n = n->next;
-	}
+	optimize_zero_loop(n);
 }
 
 static void print_ast(Node *n, int level)
@@ -97,7 +135,6 @@ static void print_ast(Node *n, int level)
 			for (i = 0; i < level; i++)
 				debug("  ");
 
-			char *op = "?";
 			debug("OP(");
 			switch (n->type)
 			{
@@ -111,6 +148,7 @@ static void print_ast(Node *n, int level)
 				case AST_SUBP: debug("SUBP, %d", n->value); break;
 				case AST_IN: debug("IN"); break;
 				case AST_OUT: debug("OUT"); break;
+				case AST_SET: debug("SET, %d", n->value); break;
 				default:
 					debug("???");
 			}
@@ -125,7 +163,9 @@ void optimize(void)
 {
 	debug("-> start optimizing\n");
 	optimize_reducing(ast);
-	
+	debug("->   reduced instructions: %d\n", reduced_ins);
+	debug("->   reduced loops: %d\n", reduced_loops);
+
 	// uncomment for printing the optimized ast
 	//print_ast(ast->child, 0);
 }

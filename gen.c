@@ -121,7 +121,7 @@ static void gen_loop_end(Node *op, int loop_level, int loop_nr)
 
 static void gen_set(Node *op)
 {
-	fprintf(fasm, "\tmov $%d, (%%r12)\n", op->value);
+	fprintf(fasm, "\tmovb $%d, (%%r12)\n", op->value);
 }
 
 static int loop_nr;

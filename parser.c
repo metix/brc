@@ -16,7 +16,7 @@ static Node *create_node(int type)
 static void push_node(Node *parent, Node *node)
 {
 	Node *tmp = parent->child;
-	
+
 	if (tmp == NULL)
 	{
 		parent->child = node;
@@ -65,11 +65,11 @@ static void parse_block(Node *n, int block_level)
 /* create a abstract syntax tree from all instructions
  * the AST of +>[.-]< looks like this:
  *
- *                #BLOCK
+ *                BLOCK
  *                |
- *		  #+ - #> - #BLOCK - #<
- *		            |
- *			    #. - #-
+ *		  OP(INC) - OP(INCP) - BLOCK - OP(DECP)
+ *                                     |
+ *			               OP(OUT) - OP(DEC)
  */
 void parse(void)
 {
