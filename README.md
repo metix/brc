@@ -12,7 +12,7 @@ requires
 make
 
 # compile a brainfuck program (with optimizer)
-./brc -O mandelbrot.b
+./brc -O examples/mandelbrot.b
 
 # run the program
 ./a.out
