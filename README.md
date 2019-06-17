@@ -11,8 +11,8 @@ requires
 # compile the compiler
 make
 
-# compile a brainfuck program
-./brc some-brainfuck-code.b
+# compile a brainfuck program (with optimizer)
+./brc -O mandelbrot.b
 
 # run the program
 ./a.out
