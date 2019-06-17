@@ -42,10 +42,10 @@ static void parse_block(Node *n, int block_level)
 		{
 			case '.': push_node(n, create_node(AST_OUT)); break;
 			case ',': push_node(n, create_node(AST_IN)); break;
-			case '>': push_node(n, create_node(AST_INCP)); break;
-			case '<': push_node(n, create_node(AST_DECP)); break;
-			case '+': push_node(n, create_node(AST_INC)); break;
-			case '-': push_node(n, create_node(AST_DEC)); break;
+			case '>': push_node(n, create_node(AST_ADDP)); break;
+			case '<': push_node(n, create_node(AST_SUBP)); break;
+			case '+': push_node(n, create_node(AST_ADD)); break;
+			case '-': push_node(n, create_node(AST_SUB)); break;
 			case '[':
 				block = create_node(AST_BLOCK);
 				parse_block(block, block_level + 1);

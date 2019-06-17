@@ -1,9 +1,11 @@
 #include "brf.h"
 
-static int reduced_ins;
-static int reduced_loops;
+struct optim_stats_s {
+	int reduced_ins;
+	int reduced_loops;
+} optim_stats;
 
-/* delete all nodes in list (not in tree). 'from' is inclusive. */
+/* delete all nodes in BLOCK. 'from' is inclusive. */
 static void delete_all(Node *from)
 {
 
@@ -12,11 +14,11 @@ static void delete_all(Node *from)
 		Node *tmp = from;
 		from = from->next;
 		free(tmp);
-		reduced_ins++;
+		optim_stats.reduced_ins++;
 	}
 }
 
-/* remove all nodes between "from" and "to" from list..
+/* remove all nodes between "from" and "to" from BLOCK.
  * "from" and "to" are exclusive.
  */
 static void reduce_nodes(Node *from, Node *to)
@@ -29,7 +31,7 @@ static void reduce_nodes(Node *from, Node *to)
 		tmp = deletable;
 		deletable = deletable->next;
 		free(tmp);
-		reduced_ins++;
+		optim_stats.reduced_ins++;
 	}
 
 	from->next = to;
@@ -39,7 +41,7 @@ static void reduce_nodes(Node *from, Node *to)
  *      +++++ => 5+
  *  this can be usesful to reduce the instructions in assembly
  */
-static void optimize_reduce_op(Node *op, int type, int new_type)
+static void optimize_reduce_op(Node *op, int type)
 {
 	Node *begin;
 	int count = 0;
@@ -64,7 +66,7 @@ static void optimize_reduce_op(Node *op, int type, int new_type)
 			was in row */
 			if (count > 1)
 			{
-				begin->type = new_type;
+				begin->type = type;
 				begin->value = count;
 				reduce_nodes(begin, op);
 			}
@@ -84,18 +86,40 @@ static void optimize_zero_loop(Node *op)
 	if (op->child == NULL)
 		return;
 
-	if ((op->child->type == AST_DEC || op->child->type == AST_INC) && op->child->next == NULL)
+	if ((op->child->type == AST_ADD || op->child->type == AST_SUB)
+			&& op->child->value == 1
+			&& op->child->next == NULL)
 	{
 		Node *child = op->child;
 
 		// overwrite block with set instruction
 		op->type = AST_SET;
-		op->value = 0;
-		reduced_loops++;
+		op->op_set.value = 0;
+		op->op_set.offset = 0;
+		optim_stats.reduced_loops++;
 
 		// delete instructions
 		delete_all(child);
 	}
+}
+
+
+static int is_cell_op(Node *op)
+{
+	if (op == NULL)
+		return 0;
+	int type = op->type;
+
+	return (type == AST_ADD || type == AST_SUB || type == AST_SET);
+}
+
+static int is_ptr_op(Node *op)
+{
+	if (op == NULL)
+		return 0;
+	int type = op->type;
+
+	return (type == AST_ADDP || type == AST_SUBP);
 }
 
 static void optimize_reducing(Node *n)
@@ -109,10 +133,10 @@ static void optimize_reducing(Node *n)
 		c = c->next;
 	}
 
-	optimize_reduce_op(n->child, AST_INC, AST_ADD);
-	optimize_reduce_op(n->child, AST_DEC, AST_SUB);
-	optimize_reduce_op(n->child, AST_INCP, AST_ADDP);
-	optimize_reduce_op(n->child, AST_DECP, AST_SUBP);
+	optimize_reduce_op(n->child, AST_ADD);
+	optimize_reduce_op(n->child, AST_SUB);
+	optimize_reduce_op(n->child, AST_ADDP);
+	optimize_reduce_op(n->child, AST_SUBP);
 
 	optimize_zero_loop(n);
 }
@@ -138,17 +162,13 @@ static void print_ast(Node *n, int level)
 			debug("OP(");
 			switch (n->type)
 			{
-				case AST_INC: debug("INC"); break;
-				case AST_DEC: debug("DEC"); break;
-				case AST_INCP: debug("INCP"); break;
-				case AST_DECP: debug("DECP"); break;
 				case AST_ADD: debug("ADD, %d", n->value); break;
 				case AST_SUB: debug("SUB, %d", n->value); break;
 				case AST_ADDP: debug("ADDP, %d", n->value); break;
 				case AST_SUBP: debug("SUBP, %d", n->value); break;
 				case AST_IN: debug("IN"); break;
 				case AST_OUT: debug("OUT"); break;
-				case AST_SET: debug("SET, %d", n->value); break;
+				case AST_SET: debug("SET, val:%d off: %d", n->op_set.value, n->op_set.offset); break;
 				default:
 					debug("???");
 			}
@@ -163,9 +183,9 @@ void optimize(void)
 {
 	debug("-> start optimizing\n");
 	optimize_reducing(ast);
-	debug("->   reduced instructions: %d\n", reduced_ins);
-	debug("->   reduced loops: %d\n", reduced_loops);
+	debug("->   reduced instructions: %d\n", optim_stats.reduced_ins);
+	debug("->   reduced loops: %d\n", optim_stats.reduced_loops);
 
 	// uncomment for printing the optimized ast
-	//print_ast(ast->child, 0);
+	print_ast(ast->child, 0);
 }

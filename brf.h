@@ -41,6 +41,11 @@ typedef struct node_s {
 	union {
 		struct node_s *child;
 		int value;
+
+		struct op_set_s {
+			int value;
+			int offset;
+		} op_set;
 	};
 } Node;
 

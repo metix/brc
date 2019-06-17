@@ -59,16 +59,6 @@ static void gen_in(Node *op)
 	fprintf(fasm, "\tcall read\n");
 }
 
-static void gen_inc_ptr(Node *op)
-{
-	fprintf(fasm, "\tinc %%r12\n");
-}
-
-static void gen_dec_ptr(Node *op)
-{
-	fprintf(fasm, "\tdec %%r12\n");
-}
-
 static void gen_add_ptr(Node *op)
 {
 	fprintf(fasm, "\tadd $%d, %%r12\n", op->value);
@@ -77,16 +67,6 @@ static void gen_add_ptr(Node *op)
 static void gen_sub_ptr(Node *op)
 {
 	fprintf(fasm, "\tsub $%d, %%r12\n", op->value);
-}
-
-static void gen_inc(Node *op)
-{
-	fprintf(fasm, "\tincb (%%r12)\n");
-}
-
-static void gen_dec(Node *op)
-{
-	fprintf(fasm, "\tdecb (%%r12)\n");
 }
 
 static void gen_add(Node *op)
@@ -121,7 +101,7 @@ static void gen_loop_end(Node *op, int loop_level, int loop_nr)
 
 static void gen_set(Node *op)
 {
-	fprintf(fasm, "\tmovb $%d, (%%r12)\n", op->value);
+	fprintf(fasm, "\tmovb $%d, %d(%%r12)\n", op->op_set.value, op->op_set.offset);
 }
 
 static int loop_nr;
@@ -135,10 +115,6 @@ static void generate_ast(Node *op, int loop_level)
 		{
 			case AST_OUT: gen_out(op); break;
 			case AST_IN: gen_in(op); break;
-			case AST_INCP: gen_inc_ptr(op); break;
-			case AST_DECP: gen_dec_ptr(op); break;
-			case AST_INC: gen_inc(op); break;
-			case AST_DEC: gen_dec(op); break;
 			case AST_ADDP: gen_add_ptr(op); break;
 			case AST_SUBP: gen_sub_ptr(op); break;
 			case AST_ADD: gen_add(op); break;
